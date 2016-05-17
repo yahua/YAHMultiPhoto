@@ -183,6 +183,10 @@ UIScrollViewDelegate>
     return self.imageView;
 }
 
+- (void)scrollViewDidEndZooming:(UIScrollView *)scrollView withView:(UIView *)view atScale:(CGFloat)scale {
+    
+    [self judegeScrollEnabled];
+}
 
 - (void)scrollViewDidZoom:(UIScrollView *)scrollView {
     
@@ -282,9 +286,24 @@ UIScrollViewDelegate>
         [UIView animateWithDuration:0.3 animations:^{
             
             [self zoomToRect:CGRectMake(touchPoint.x - xsize/2, touchPoint.y - ysize/2, xsize, ysize) animated:NO];
+            [self judegeScrollEnabled];
             self.imageView.frame = [self rectToCenter:self.imageView.frame];
         }];
     }
 }
+
+- (void)judegeScrollEnabled {
+    
+    self.scrollEnabled = self.zoomScale>1;
+}
+
+#pragma mark - Getters and Setters
+
+- (void)setZoomScale:(CGFloat)scale animated:(BOOL)animated {
+    
+    [super setZoomScale:scale animated:animated];
+    self.scrollEnabled = scale>1;
+}
+
 
 @end
