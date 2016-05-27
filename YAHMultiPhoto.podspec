@@ -16,7 +16,7 @@ Pod::Spec.new do |s|
   #
 
   s.name         = "YAHMultiPhoto"
-  s.version      = "0.0.1"
+  s.version      = "0.0.3"
   s.summary      = "查看大图"
 
   s.description  = <<-DESC
