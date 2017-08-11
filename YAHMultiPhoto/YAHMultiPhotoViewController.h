@@ -9,11 +9,22 @@
 #import <UIKit/UIKit.h>
 #import "YAHMutiZoomPhoto.h"
 
+@class YAHMultiPhotoViewController;
+@protocol YAHMultiPhotoViewControllerDelegate <NSObject>
+
+- (void)willHideMultiPhotoView:(YAHMultiPhotoViewController *)vc currentIndex:(NSInteger)cuurentIndex;
+
+- (void)didHideMultiPhotoView:(YAHMultiPhotoViewController *)vc currentIndex:(NSInteger)cuurentIndex;
+
+@end
 
 @interface YAHMultiPhotoViewController : UIViewController
 
-@property (nonatomic, copy) void(^dismissBlock)(YAHMultiPhotoViewController *multiCtr);
+@property (nonatomic, weak) id<YAHMultiPhotoViewControllerDelegate> delegate;
+
 @property (nonatomic, assign) BOOL saveToAlbum; //保存相册按钮，默认关闭
+
+@property (nonatomic, assign) CGFloat durationAnimation;  //显示动画时长  默认：0.3s
 
 /**
  *  无动画的弹出查看大图界面

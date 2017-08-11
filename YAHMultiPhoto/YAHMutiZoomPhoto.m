@@ -14,7 +14,7 @@
 
 @property (nonatomic, strong) UIImage *image;
 @property (nonatomic, copy) NSURL *photoUrl;
-@property (nonatomic, strong) id <SDWebImageOperation> webImageOperation;
+@property (nonatomic, strong) SDWebImageDownloadToken *webImageOperation;
 
 @property (nonatomic, assign) BOOL loading;
 
@@ -125,25 +125,22 @@
                 
                 // Load async from web (using SDWebImage)
                 @try {
-                    SDWebImageManager *manager = [SDWebImageManager sharedManager];
-                    _webImageOperation = [manager downloadImageWithURL:_photoUrl
-                                                               options:0
-                                                              progress:^(NSInteger receivedSize, NSInteger expectedSize) {
-                                                                  if (expectedSize > 0) {
-                                                                      float progress = receivedSize / (float)expectedSize;
-                                                                      NSDictionary* dict = @{@"progress":[NSNumber numberWithFloat:progress],
-                                                                                             @"photo":self};
-                                                                      [[NSNotificationCenter defaultCenter] postNotificationName:MWPHOTO_PROGRESS_NOTIFICATION object:dict];
-                                                                  }
-                                                              }
-                                                             completed:^(UIImage *image, NSError *error, SDImageCacheType cacheType, BOOL finished, NSURL *imageURL) {
-                                                                 if (error) {
-                                                                     NSLog(@"SDWebImage failed to download image: %@", error);
-                                                                 }
-                                                                 _webImageOperation = nil;
-                                                                 self.displayImage = image;
-                                                                 [self imageLoadingComplete];
-                                                             }];
+                    SDWebImageDownloader *manager = [SDWebImageDownloader sharedDownloader];
+                    _webImageOperation = [manager downloadImageWithURL:_photoUrl options:0 progress:^(NSInteger receivedSize, NSInteger expectedSize, NSURL * _Nullable targetURL) {
+                        if (expectedSize > 0) {
+                            float progress = receivedSize / (float)expectedSize;
+                            NSDictionary* dict = @{@"progress":[NSNumber numberWithFloat:progress],
+                                                   @"photo":self};
+                            [[NSNotificationCenter defaultCenter] postNotificationName:MWPHOTO_PROGRESS_NOTIFICATION object:dict];
+                        }
+                    } completed:^(UIImage * _Nullable image, NSData * _Nullable data, NSError * _Nullable error, BOOL finished) {
+                        if (error) {
+                            NSLog(@"SDWebImage failed to download image: %@", error);
+                        }
+                        _webImageOperation = nil;
+                        self.displayImage = image;
+                        [self imageLoadingComplete];
+                    }];
                 } @catch (NSException *e) {
                     //MWLog(@"Photo from web: %@", e);
                     _webImageOperation = nil;
@@ -169,7 +166,7 @@
 
 - (void)cancelAnyLoading {
     if (_webImageOperation) {
-        [_webImageOperation cancel];
+        [[SDWebImageDownloader sharedDownloader] cancel:_webImageOperation];
         _loading = NO;
     }
 }

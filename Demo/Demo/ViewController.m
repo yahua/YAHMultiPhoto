@@ -10,7 +10,7 @@
 
 #import "YAHMultiPhotoViewController.h"
 
-@interface ViewController ()
+@interface ViewController () <YAHMultiPhotoViewControllerDelegate>
 
 @property (nonatomic, strong) NSMutableArray *frameList;
 
@@ -68,11 +68,22 @@
         [photos addObject:[YAHMutiZoomPhoto photoWithUrl:image]];
     }
     YAHMultiPhotoViewController *vc = [[YAHMultiPhotoViewController alloc] initWithImage:photos thumbImage:thumbPhotos originFrame:self.frameList selectIndex:selectIndex];
-    vc.dismissBlock = ^(YAHMultiPhotoViewController *multiCtr){
-        [multiCtr dismissViewControllerAnimated:NO completion:nil];
-    };
+    vc.delegate = self;
     
     [self presentViewController:vc animated:NO completion:nil];
+}
+
+#pragma mark - YAHMultiPhotoViewControllerDelegate
+
+- (void)willHideMultiPhotoView:(YAHMultiPhotoViewController *)vc currentIndex:(NSInteger)cuurentIndex {
+    
+    NSLog(@"willHideMultiPhotoView cuurentIndex: %td",cuurentIndex);
+}
+
+- (void)didHideMultiPhotoView:(YAHMultiPhotoViewController *)vc currentIndex:(NSInteger)cuurentIndex {
+    
+    [vc dismissViewControllerAnimated:NO completion:nil];
+    NSLog(@"didHideMultiPhotoView cuurentIndex: %td",cuurentIndex);
 }
 
 @end

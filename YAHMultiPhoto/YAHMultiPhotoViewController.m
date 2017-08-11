@@ -40,6 +40,11 @@ UIScrollViewDelegate>
 
 @implementation YAHMultiPhotoViewController
 
+- (void)dealloc
+{
+    
+}
+
 - (id)initWithImage:(NSArray *)photos thumbImage:(NSArray *)thumbPhotos selectIndex:(NSInteger)index; {
     
     return [self initWithImage:photos thumbImage:thumbPhotos originFrame:nil selectIndex:index];
@@ -58,6 +63,7 @@ UIScrollViewDelegate>
         }
         _currentIndex = index;
         _saveToAlbum = NO;
+        _durationAnimation = 0.3f;
     }
     return self;
 }
@@ -110,21 +116,25 @@ UIScrollViewDelegate>
 
 - (void)onclose {
     
+    if ([self.delegate respondsToSelector:@selector(willHideMultiPhotoView:currentIndex:)]) {
+        [self.delegate willHideMultiPhotoView:self currentIndex:self.currentIndex];
+    }
+    
     self.titleLabel.hidden = YES;
     self.bottomToolbar.hidden = YES;
     if (self.frameList) {
         [self.centerView resumeZoomScale];
-        self.maskView.alpha = 0;
-        [UIView animateWithDuration:0.3 animations:^{
+        [UIView animateWithDuration:self.durationAnimation animations:^{
+            self.maskView.alpha = 0;
             [self.centerView rechangeInitRdct];
         } completion:^(BOOL finished) {
-            if (self.dismissBlock) {
-                self.dismissBlock(self);
+            if ([self.delegate respondsToSelector:@selector(didHideMultiPhotoView:currentIndex:)]) {
+                [self.delegate didHideMultiPhotoView:self currentIndex:self.currentIndex];
             }
         }];
     }else {             //无动画
-        if (self.dismissBlock) {
-            self.dismissBlock(self);
+        if ([self.delegate respondsToSelector:@selector(didHideMultiPhotoView:currentIndex:)]) {
+            [self.delegate didHideMultiPhotoView:self currentIndex:self.currentIndex];
         }
     }
 }
@@ -156,6 +166,7 @@ UIScrollViewDelegate>
 - (void)startAnimation {
     
     [UIView animateWithDuration:0.3 animations:^{
+        self.maskView.alpha = 1.0;
         [self.centerView rechangeNormalRdct];
         self.titleLabel.hidden = (self.photoList.count>1)?NO:YES;
     } completion:^(BOOL finished) {
@@ -173,7 +184,6 @@ UIScrollViewDelegate>
         [self reSetSubView:self.centerView photoIndex:self.currentIndex];
         //动画效果
         [self.centerView rechangeInitRdct];
-        self.maskView.alpha = 1.0;
         [self performSelector:@selector(startAnimation) withObject:nil afterDelay:0.1f];
     }
     
