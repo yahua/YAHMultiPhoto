@@ -16,14 +16,14 @@ Pod::Spec.new do |s|
   #
 
   s.name         = "YAHMultiPhoto"
-  s.version      = "0.0.4"
+  s.version      = "0.0.5"
   s.summary      = "查看大图"
 
   s.description  = <<-DESC
                    查看大图功能，支持本地图片、相册图片、网络图片等
                    DESC
 
-  s.homepage     = "https://github.com/yahua/YAHMutiPhoto"
+  s.homepage     = "https://github.com/yahua/YAHMultiPhoto"
   
 
   s.license      = "MIT"
