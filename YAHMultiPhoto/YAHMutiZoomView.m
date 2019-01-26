@@ -226,10 +226,7 @@ UIScrollViewDelegate>
     CGFloat yScale = boundsSize.height / imageSize.height;  // 自动适应图片高度
     CGFloat minScale = MIN(xScale, yScale);                 // 使图片全屏显示
     
-    // 如果图片比控件小则不放大!
-    if (xScale >= 1 && yScale >= 1) {
-        minScale = 1.0;
-    }
+    
     
     // 重新定位控件
     self.scaleOriginRect = CGRectMake(0, 0, self.scaleOriginRect.size.width*minScale, self.scaleOriginRect.size.height*minScale);
