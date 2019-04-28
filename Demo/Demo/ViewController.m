@@ -69,6 +69,7 @@
     }
     YAHMultiPhotoViewController *vc = [[YAHMultiPhotoViewController alloc] initWithImage:photos thumbImage:thumbPhotos originFrame:self.frameList selectIndex:selectIndex];
     vc.delegate = self;
+    vc.saveToAlbum = YES;
     
     [self presentViewController:vc animated:NO completion:nil];
 }
