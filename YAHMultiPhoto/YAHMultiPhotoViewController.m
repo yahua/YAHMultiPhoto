@@ -9,7 +9,11 @@
 #import "YAHMultiPhotoViewController.h"
 #import "YAHMutiZoomView.h"
 
-#import <AssetsLibrary/AssetsLibrary.h>
+#import <Photos/Photos.h>
+#import <MBProgressHUD/MBProgressHUD.h>
+#import <YAHBaseKit/YAHBaseKit.h>
+#import <YAHUIKit/YAHUIKit.h>
+
 
 #define TOOLbAR_HEIGHT  44.0
 
@@ -21,18 +25,16 @@ typedef NS_ENUM(NSUInteger, ScrollDirection) {
 @interface YAHMultiPhotoViewController () <
 UIScrollViewDelegate>
 
-@property (nonatomic, strong) UILabel *titleLabel;
 @property (nonatomic, strong) UIView *maskView;
 @property (nonatomic, strong) YAHMutiZoomView *prevView;
 @property (nonatomic, strong) YAHMutiZoomView *centerView;
 @property (nonatomic, strong) YAHMutiZoomView *nextView;
-@property (nonatomic, strong) UIToolbar *bottomToolbar;
 @property (nonatomic, strong) UIScrollView *scrollView;
+@property (nonatomic, strong) UIPageControl *pageControl;
 
-@property (nonatomic, strong) NSMutableArray *photoList;
+@property (nonatomic, strong) NSMutableArray *largePhotoList;
 @property (nonatomic, strong) NSMutableArray *thumbPhotoList;
 @property (nonatomic, strong) NSMutableArray *frameList;
-@property (nonatomic, strong) ALAssetsLibrary *library;
 
 @property (nonatomic, assign) NSInteger currentIndex;
 
@@ -45,25 +47,24 @@ UIScrollViewDelegate>
     
 }
 
-- (id)initWithImage:(NSArray *)photos thumbImage:(NSArray *)thumbPhotos selectIndex:(NSInteger)index; {
+- (id)initWithConfig:(YAHMutiPhotoConfig *)config largePhotos:(NSArray *)largePhotos thumbPhotos:(NSArray *)thumbPhotos selectIndex:(NSInteger)index {
     
-    return [self initWithImage:photos thumbImage:thumbPhotos originFrame:nil selectIndex:index];
+    return [self initWithConfig:config largePhotos:largePhotos thumbPhotos:thumbPhotos originFrame:nil selectIndex:index];
 }
 
-- (id)initWithImage:(NSArray *)photos thumbImage:(NSArray *)thumbPhotos originFrame:(NSArray *)frames selectIndex:(NSInteger)index {
+- (id)initWithConfig:(YAHMutiPhotoConfig *)config largePhotos:(NSArray *)largePhotos thumbPhotos:(NSArray *)thumbPhotos originFrame:(NSArray *)frames selectIndex:(NSInteger)index {
     
     self = [super init];
     if (self) {
-        if (photos && thumbPhotos) {
-            _photoList = [NSMutableArray arrayWithArray:photos];
+        if (largePhotos && thumbPhotos) {
+            _largePhotoList = [NSMutableArray arrayWithArray:largePhotos];
             _thumbPhotoList = [NSMutableArray arrayWithArray:thumbPhotos];
         }
         if (frames) {
             _frameList = [NSMutableArray arrayWithArray:frames];
         }
         _currentIndex = index;
-        _saveToAlbum = NO;
-        _durationAnimation = 0.3f;
+        self.modalPresentationStyle = UIModalPresentationOverCurrentContext;
     }
     return self;
 }
@@ -76,8 +77,10 @@ UIScrollViewDelegate>
     
     [self.view addSubview:self.maskView];
     [self.view addSubview:self.scrollView];
-    [self.view addSubview:self.titleLabel];
-    [self.view addSubview:self.bottomToolbar];
+    [self.view addSubview:self.pageControl];
+    
+    UILongPressGestureRecognizer *longPressGestureRecognizer = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(saveToAlbumAction:)];
+    [self.view addGestureRecognizer:longPressGestureRecognizer];
     
     [self refreshUI];
 }
@@ -114,17 +117,36 @@ UIScrollViewDelegate>
 
 #pragma mark - Action
 
+- (void)startAnimation {
+    
+    if (self.frameList.count>0) {
+        self.maskView.alpha = 0;
+        [UIView animateWithDuration:0.3 animations:^{
+            self.maskView.alpha = 1.0;
+            [self.centerView rechangeNormalRdct];
+        } completion:nil];
+    }else {
+        self.view.alpha = 0;
+        self.maskView.alpha = 0;
+        [self.centerView rechangeNormalRdct];
+        [UIView animateWithDuration:0.2 animations:^{
+            self.view.alpha = 1.0;
+            self.maskView.alpha = 1.0;
+        } completion:^(BOOL finished) {
+            NSLog(@"");
+        }];
+    }
+}
+
 - (void)onclose {
     
     if ([self.delegate respondsToSelector:@selector(willHideMultiPhotoView:currentIndex:)]) {
         [self.delegate willHideMultiPhotoView:self currentIndex:self.currentIndex];
     }
     
-    self.titleLabel.hidden = YES;
-    self.bottomToolbar.hidden = YES;
     if (self.frameList) {
         [self.centerView resumeZoomScale];
-        [UIView animateWithDuration:self.durationAnimation animations:^{
+        [UIView animateWithDuration:_config.durationAnimation animations:^{
             self.maskView.alpha = 0;
             [self.centerView rechangeInitRdct];
         } completion:^(BOOL finished) {
@@ -132,45 +154,41 @@ UIScrollViewDelegate>
                 [self.delegate didHideMultiPhotoView:self currentIndex:self.currentIndex];
             }
         }];
-    }else {             //无动画
-        if ([self.delegate respondsToSelector:@selector(didHideMultiPhotoView:currentIndex:)]) {
-            [self.delegate didHideMultiPhotoView:self currentIndex:self.currentIndex];
-        }
+    }else {//无动画
+        [UIView animateWithDuration:0.1 animations:^{
+            self.view.alpha = 0;
+        } completion:^(BOOL finished) {
+            if ([self.delegate respondsToSelector:@selector(didHideMultiPhotoView:currentIndex:)]) {
+                [self.delegate didHideMultiPhotoView:self currentIndex:self.currentIndex];
+            }
+        }];
     }
 }
 
-- (void)saveToAlbumAction:(id)sender {
+- (void)saveToAlbumAction:(UILongPressGestureRecognizer*)sender {
     
-    UIBarButtonItem *saveItem = (UIBarButtonItem *)sender;
-    YAHMutiZoomPhoto *photo = [self.photoList objectAtIndex:self.currentIndex];
-    UIImage *image = [photo displayImage];
-    if (!image) {
-        return;
+    if (sender.state == UIGestureRecognizerStateBegan) {
+        [self actionSheetWithTitle:@"" buttons:@[@"保存图片"] showInView:self.view onDismiss:^(NSInteger buttonIndex) {
+            YAHMutiZoomPhoto *photo = [self.largePhotoList objectAtIndex:self.currentIndex];
+            UIImage *image = [photo displayImage];
+            [self saveImageToAblum:image];
+        } onCancel:^{
+            
+        }];
     }
-    saveItem.enabled = NO;
-    [self performSelector:@selector(saveImageToAblum:) withObject:image afterDelay:0.5f];
 }
 
 - (void)saveImageToAblum:(UIImage *)image {
     
-    [self.library writeImageToSavedPhotosAlbum:image.CGImage orientation:(ALAssetOrientation)image.imageOrientation completionBlock:^(NSURL *assetURL, NSError *error) {
-        if (error) {
-            //[[MBProgressHUD_MUIEx instance] showMsg:@"保存图片失败" AutoHideDelay:1.5f];
-        }else {
-            //[[MBProgressHUD_MUIEx instance] showMsg:@"保存图片成功" AutoHideDelay:1.5f];
-        }
-        [self.bottomToolbar.items firstObject].enabled = YES;
-    }];
-}
-
-- (void)startAnimation {
-    
-    [UIView animateWithDuration:0.3 animations:^{
-        self.maskView.alpha = 1.0;
-        [self.centerView rechangeNormalRdct];
-        self.titleLabel.hidden = (self.photoList.count>1)?NO:YES;
-    } completion:^(BOOL finished) {
-        self.bottomToolbar.hidden = !self.saveToAlbum;
+    [[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
+        NSData *data = UIImageJPEGRepresentation(image, 1);
+        [[PHAssetCreationRequest creationRequestForAsset] addResourceWithType:PHAssetResourceTypePhoto data:data options:[PHAssetResourceCreationOptions new]];
+    } completionHandler:^(BOOL success, NSError * _Nullable error){
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSString *tips =  error?@"保存图片失败":@"保存图片成功";
+            [MBProgressHUD showTextOnlyHUD:tips];
+        });
     }];
 }
 
@@ -178,7 +196,7 @@ UIScrollViewDelegate>
 
 - (void)refreshUI {
     
-    if ([self.photoList count] == 0) {
+    if ([self.largePhotoList count] == 0) {
         return;
     }else {
         [self reSetSubView:self.centerView photoIndex:self.currentIndex];
@@ -187,7 +205,7 @@ UIScrollViewDelegate>
         [self performSelector:@selector(startAnimation) withObject:nil afterDelay:0.1f];
     }
     
-    if ([self.photoList count] > 1) {
+    if ([self.largePhotoList count] > 1) {
         
         [self.scrollView setContentSize:CGSizeMake(self.scrollView.frame.size.width*3, self.scrollView.frame.size.height)];
         
@@ -231,7 +249,7 @@ UIScrollViewDelegate>
 
 - (void)reSetSubView:(YAHMutiZoomView *)pageView photoIndex:(NSInteger )index {
     
-    if (index<0 || index>= self.photoList.count) {
+    if (index<0 || index>= self.largePhotoList.count) {
         return;
     }
 
@@ -239,12 +257,12 @@ UIScrollViewDelegate>
     if (self.frameList) {
         originFrame = [[self.frameList objectAtIndex:index] CGRectValue];
     }
-    [pageView reloadUIWithPhoto:[self.photoList objectAtIndex:index] thumbPhoto:[self.thumbPhotoList objectAtIndex:index] initFrame:originFrame];
+    [pageView reloadUIWithPhoto:[self.largePhotoList objectAtIndex:index] thumbPhoto:[self.thumbPhotoList objectAtIndex:index] initFrame:originFrame];
 }
 
 - (void)resetFrame {
     
-    if ([self.photoList count] >1) {
+    if ([self.largePhotoList count] >1) {
         
         CGRect frame = self.scrollView.bounds;
         frame.origin.x = 0;
@@ -265,7 +283,7 @@ UIScrollViewDelegate>
     
     NSInteger index = self.currentIndex +1;
     
-    if (index == [self.photoList count]) {
+    if (index == [self.largePhotoList count]) {
         index = 0;
     }
     
@@ -277,36 +295,13 @@ UIScrollViewDelegate>
     NSInteger index = self.currentIndex -1;
     
     if (index < 0) {
-        index = [self.photoList count] -1;
+        index = [self.largePhotoList count] -1;
     }
     
     return index;
 }
 
 #pragma mark - Custom Accessors
-
-- (ALAssetsLibrary *)library {
-    
-    if (!_library) {
-        _library = [[ALAssetsLibrary alloc] init];
-    }
-    return _library;
-}
-
-- (UILabel *)titleLabel {
-    
-    if (!_titleLabel) {
-        _titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, self.view.frame.size.width, 55)];
-        _titleLabel.textColor = [UIColor whiteColor];
-        _titleLabel.font = [UIFont systemFontOfSize:20.0f];
-        _titleLabel.textAlignment = NSTextAlignmentCenter;
-        _titleLabel.backgroundColor = [UIColor colorWithWhite:0 alpha:0.45f];
-        _titleLabel.autoresizingMask = UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleWidth;
-        _titleLabel.text = [NSString stringWithFormat:@"%td/%td", self.currentIndex+1, self.photoList.count];
-        _titleLabel.hidden = YES;
-    }
-    return _titleLabel;
-}
 
 - (UIView *)maskView {
     
@@ -377,28 +372,25 @@ UIScrollViewDelegate>
     return _nextView;
 }
 
-- (UIToolbar *)bottomToolbar {
+- (UIPageControl *)pageControl {
     
-    if (!_bottomToolbar) {
-        _bottomToolbar = [[UIToolbar alloc] initWithFrame:CGRectMake(0, self.view.frame.size.height - TOOLbAR_HEIGHT, self.view.frame.size.width, TOOLbAR_HEIGHT)];
-        _bottomToolbar.barStyle = UIBarStyleBlackTranslucent;
-        _bottomToolbar.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleWidth;
-        _bottomToolbar.hidden = YES;
-        //添加下方工具栏按键
-        NSMutableArray  *captionItem =[[NSMutableArray alloc] initWithCapacity:1];
-        if (self.saveToAlbum) {
-            UIBarButtonItem *saveBarItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemSave target:self action:@selector(saveToAlbumAction:)];
-            [captionItem addObject:saveBarItem];
-        }
-        [_bottomToolbar setItems:captionItem];
+    if (!_pageControl) {
+        _pageControl = [[UIPageControl alloc] initWithFrame:CGRectMake(0, 0, YAH_SCREEN_SIZE_WIDTH, YAH_SCALE_ZOOM(18))];
+        _pageControl.center = CGPointMake(YAH_SCREEN_SIZE_WIDTH/2, YAH_SCREEN_SIZE_HEIGHT-YAH_HOME_INDICATOR_HEIGHT-30);
+        _pageControl.pageIndicatorTintColor = _config.pageIndicatorTintColor;
+        _pageControl.currentPageIndicatorTintColor = _config.currentPageIndicatorTintColor;
+        _pageControl.userInteractionEnabled = NO;
+        _pageControl.hidesForSinglePage = YES;
+        _pageControl.numberOfPages = self.largePhotoList.count;
+        _pageControl.currentPage = self.currentIndex;
     }
-    return _bottomToolbar;
+    return _pageControl;
 }
 
 - (void)setCurrentIndex:(NSInteger)currentIndex {
     
     _currentIndex = currentIndex;
-    self.titleLabel.text = [NSString stringWithFormat:@"%td/%td", _currentIndex+1, self.photoList.count];
+    self.pageControl.currentPage = currentIndex;
 }
 
 @end

@@ -31,7 +31,7 @@ Pod::Spec.new do |s|
 
   s.author             = { "yahua" => "yahua523@163.com" }
 
-  s.platform     = :ios, "7.0"
+  s.platform     = :ios, "9.0"
 
   s.requires_arc = true
 
@@ -40,6 +40,6 @@ Pod::Spec.new do |s|
   s.source_files  = "YAHMultiPhoto/*.{h,m}"
 
   s.dependency 'SDWebImage'
-
+  s.dependency 'YAHUIKit'
 
 end

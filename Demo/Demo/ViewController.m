@@ -8,7 +8,7 @@
 
 #import "ViewController.h"
 
-#import "YAHMultiPhotoViewController.h"
+#import <YAHMultiPhoto/YAHMultiPhotoViewController.h>
 
 @interface ViewController () <YAHMultiPhotoViewControllerDelegate>
 
@@ -67,9 +67,12 @@
         NSURL *image = [NSURL URLWithString:url];
         [photos addObject:[YAHMutiZoomPhoto photoWithUrl:image]];
     }
-    YAHMultiPhotoViewController *vc = [[YAHMultiPhotoViewController alloc] initWithImage:photos thumbImage:thumbPhotos originFrame:self.frameList selectIndex:selectIndex];
+    YAHMutiPhotoConfig *config = [YAHMutiPhotoConfig new];
+    config.pageIndicatorTintColor = [UIColor whiteColor];
+    config.currentPageIndicatorTintColor = [UIColor greenColor];
+    YAHMultiPhotoViewController *vc = [[YAHMultiPhotoViewController alloc] initWithConfig:config largePhotos:photos thumbPhotos:thumbPhotos originFrame:nil selectIndex:selectIndex];
     vc.delegate = self;
-    vc.saveToAlbum = YES;
+    vc.config = config;
     
     [self presentViewController:vc animated:NO completion:nil];
 }

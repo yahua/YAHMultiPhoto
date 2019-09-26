@@ -8,6 +8,7 @@
 
 #import "YAHMutiZoomPhoto.h"
 #import "SDWebImageManager.h"
+#import "SDWebImageDownloader.h"
 #import <AssetsLibrary/AssetsLibrary.h>
 
 @interface YAHMutiZoomPhoto ()
@@ -166,7 +167,7 @@
 
 - (void)cancelAnyLoading {
     if (_webImageOperation) {
-        [[SDWebImageDownloader sharedDownloader] cancel:_webImageOperation];
+        [[SDWebImageDownloader sharedDownloader] canRequestImageForURL:_webImageOperation.url];
         _loading = NO;
     }
 }
